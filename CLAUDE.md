@@ -142,6 +142,16 @@ Ablation log (every comparison made on the three windows): Stage A 7 (config vs 
 - **Test:** the frozen recipe (Stage A/B winners) is rolled forward by one block: the model is fit on all data before the test (train + val, strict purge), the calibrator comes from the three blocks before the test (the last of which is the validation window), thresholds likewise. The test is evaluated once.
 - **Limitations to report:** a static calibrator cannot follow a regime that keeps shifting inside the test window, so report calibration drift by week. Hyperparameters are not tuned in this round.
 
+## Test result (2026-10-12, single run, `scripts/phase5/run_test.py test`)
+
+The frozen recipe was evaluated once on 2026-09-14..10-11; the marker `reports/.test_run_done` records the commit (`15b25a3`), that the working tree had uncommitted code changes, and a SHA-256 of all code. A dry run on validation reproduced the Stage A predictions exactly before the real run. **Nothing was changed after seeing the test results.** Details, tables and figures are in `README.md` and `reports/test_*.csv`.
+
+- **Null result in the headline view (Kyiv clear at t):** PR-AUC 0.232 / 0.551 / 0.784 at 1h / 3h / 6h against base rates 0.227 / 0.553 / 0.791. Precision at the frozen thresholds is within 0.007 of the base rate at recall 0.8 and 0.9 and below it at recall 0.5. Frozen thresholds did not transfer (achieved recall 0.89-0.99 at targets 0.8 and 0.9).
+- **Better than climatology only in Brier and log loss** (significant at all horizons); not significantly better in PR-AUC. Significantly worse than a constant at the test window's own base rate (Brier +0.013 / +0.071 / +0.105): the model under-predicts every week (mean prediction 53-88% of the observed rate).
+- **No significant difference between the GBM and the recent-activity logistic baseline** in view (b) at any horizon. In view (a) the GBM's PR-AUC advantage over that baseline comes largely from the open-alert state.
+- **Sensitivity to naive alerts:** excluding origins whose label window touches one leaves the conclusion unchanged.
+- **Test composition:** 128 Kyiv alerts in 28 days (4.6 per day), 28% of them naive. Test origins kept: 1344 / 1341 / 1335.
+
 ## Phases
 
 1. **Data:**
