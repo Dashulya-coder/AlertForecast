@@ -35,10 +35,31 @@ def eval_origins(name, allow_test=False, horizon_h=None, complete_until=None):
     return t
 
 
+def fit_origins_before(start_s, horizon_h):
+    """Purged origins for fitting a model that will be evaluated from `start_s` on. Strict: t + h < start_s."""
+    return grid(config.TRAIN_ORIGIN_START, start_s - horizon_h * config.HOUR_S)  # end is exclusive
+
+
 def fit_origins(eval_name, horizon_h):
     """Purged origins used for fitting when evaluating on `eval_name`.
 
     val  -> train only; test -> train + val. Strict: t + h < first evaluation origin.
     """
-    eval_start = EVAL_RANGES[eval_name][0]
-    return grid(config.TRAIN_ORIGIN_START, eval_start - horizon_h * config.HOUR_S)  # end is exclusive
+    return fit_origins_before(EVAL_RANGES[eval_name][0], horizon_h)
+
+
+def window_origins(window_name):
+    """All origins of a method-selection window (val, w1, w2). The test split is not available here."""
+    start, end = config.EVAL_WINDOWS[window_name]
+    return grid(start, end)
+
+
+def calibration_blocks(window_name):
+    """The K 28-day blocks directly before a window, nearest first: [(start, end), ...]."""
+    start, _ = config.EVAL_WINDOWS[window_name]
+    blocks, end = [], start
+    for _ in range(config.CAL_BLOCKS):
+        begin = config.shift_local_days(end, -28)
+        blocks.append((begin, end))
+        end = begin
+    return blocks

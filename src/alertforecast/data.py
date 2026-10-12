@@ -116,6 +116,35 @@ class Intervals:
         t = np.asarray(t, dtype="int64")
         return self._cumulative_coverage(t) - self._cumulative_coverage(t - window_s)
 
+    def open_age(self, t):
+        """Seconds since the start of the alert open at t; 0 when clear. Uses only start <= t."""
+        t = np.asarray(t, dtype="int64")
+        idx = self._first_ending_after(t)
+        ok = idx < len(self.starts)
+        out = np.zeros(len(t))
+        live = np.zeros(len(t), dtype=bool)
+        live[ok] = self.starts[idx[ok]] <= t[ok]
+        out[live] = t[live] - self.starts[idx[live]]
+        return out
+
+    def since_last_start(self, t):
+        """Seconds since the most recent alert start at or before t; NaN if none yet."""
+        t = np.asarray(t, dtype="int64")
+        j = np.searchsorted(self.starts, t, side="right") - 1
+        out = np.full(len(t), np.nan)
+        ok = j >= 0
+        out[ok] = t[ok] - self.starts[j[ok]]
+        return out
+
+    def since_last_end(self, t):
+        """Seconds since the most recent end at or before t (an end later than t is never used); NaN if none."""
+        t = np.asarray(t, dtype="int64")
+        j = np.searchsorted(self.ends, t, side="right") - 1
+        out = np.full(len(t), np.nan)
+        ok = j >= 0
+        out[ok] = t[ok] - self.ends[j[ok]]
+        return out
+
     def starts_in_window(self, t, window_s):
         """Number of alert starts in (t - window, t]."""
         t = np.asarray(t, dtype="int64")

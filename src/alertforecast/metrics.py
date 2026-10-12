@@ -91,6 +91,33 @@ def block_bootstrap_diff_ci(metric_fn, y, p_a, p_b, day_ids, n_boot=500, seed=0,
     return float(point), float(lo), float(hi)
 
 
+def multi_window_diff_ci(metric_fn, windows_a, windows_b, n_boot=300, seed=0, alpha=0.05):
+    """CI for the mean over windows of metric(a) - metric(b).
+
+    `windows_a` / `windows_b` are lists of (y, p, day_ids), one entry per window, on the same rows. Each bootstrap
+    iteration resamples days within every window (paired between a and b), takes the per-window difference and
+    averages over windows. Returns (mean difference, lo, hi).
+    """
+    prepared = []
+    for (y, pa, days), (_, pb, _) in zip(windows_a, windows_b):
+        y, pa, pb, days = np.asarray(y), np.asarray(pa), np.asarray(pb), np.asarray(days)
+        uniq = np.unique(days)
+        prepared.append((y, pa, pb, uniq, {d: np.flatnonzero(days == d) for d in uniq}))
+    point = np.mean([metric_fn(y, pa) - metric_fn(y, pb) for y, pa, pb, _, _ in prepared])
+    rng = np.random.default_rng(seed)
+    vals = []
+    for _ in range(n_boot):
+        diffs = []
+        for y, pa, pb, uniq, idx_by_day in prepared:
+            idx = np.concatenate([idx_by_day[d] for d in rng.choice(uniq, size=len(uniq), replace=True)])
+            diffs.append(metric_fn(y[idx], pa[idx]) - metric_fn(y[idx], pb[idx]))
+        v = float(np.mean(diffs))
+        if not np.isnan(v):
+            vals.append(v)
+    lo, hi = np.quantile(vals, [alpha / 2, 1 - alpha / 2])
+    return float(point), float(lo), float(hi)
+
+
 def block_bootstrap_ci(metric_fn, y, p, day_ids, n_boot=500, seed=0, alpha=0.05):
     """CI for metric_fn(y, p) resampling whole days with replacement, because alerts cluster in time."""
     y, p = np.asarray(y), np.asarray(p)
