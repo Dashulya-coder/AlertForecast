@@ -16,6 +16,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 import common as c
+from alertforecast.data import Intervals
 
 BEFORE, AFTER = 6 * 3600, 1 * 3600
 NULL_SHIFTS_DAYS = (3, 5, 7, 10)  # moved back in time only
@@ -26,7 +27,11 @@ df = df[df.started_at_s < c.VAL_START]  # train period only
 kyiv = df[df.region == "Kyiv City"]
 k_start, k_end = c.merged_intervals(kyiv.started_at_s.values, kyiv.finished_at_s.values)
 regions = sorted(r for r in df.region.unique() if r != "Kyiv City")
-r_iv = {r: c.merged_intervals(df[df.region == r].started_at_s.values, df[df.region == r].finished_at_s.values) for r in regions}
+# Real-time state: a naive alert (imputed end = start + 30 min) stays open until the region's next activation, as a
+# live system would see it. The dataset's ends are used only for Kyiv's labels (k_start / k_end).
+r_state = {r: Intervals.for_region_state(df, r) for r in regions}
+r_iv = {r: (r_state[r].starts, r_state[r].ends) for r in regions}
+k_state = Intervals.for_region_state(df, "Kyiv City")
 r_starts_raw = {r: np.sort(df[df.region == r].started_at_s.values) for r in regions}
 
 
@@ -84,7 +89,7 @@ def active_for_at_least(rs, re, t, min_age_s):
 
 def conditional_rates(period_start, label, min_age_s=0):
     t = c.origins(period_start, c.VAL_START - 6 * 3600)  # labels need 6h of train-period data
-    t = t[~c.active_at(k_start, k_end, t)]  # view (b): Kyiv clear at t
+    t = t[~k_state.active_at(t)]  # view (b): Kyiv clear at t, as known in real time
     base = {h: c.label(k_start, k_end, t, h).mean() for h in (1, 3)}
     print(f"\n=== {label}: P(Kyiv alert in next h | R active for >= {min_age_s // 60} min at t), Kyiv clear at t, {len(t)} origins ===")
     print(f"base rate: 1h {base[1]:.3f}  3h {base[3]:.3f}")
@@ -111,7 +116,7 @@ def conditional_rates(period_start, label, min_age_s=0):
 def n_active_regions_table(period_start, label):
     """Generic 'wave is underway' baseline: how many OTHER regions are active at t, regardless of which."""
     t = c.origins(period_start, c.VAL_START - 6 * 3600)
-    t = t[~c.active_at(k_start, k_end, t)]
+    t = t[~k_state.active_at(t)]
     n_act = np.zeros(len(t), dtype=int)
     for r in regions:
         rs, re = r_iv[r]
