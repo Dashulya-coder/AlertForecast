@@ -1,0 +1,8 @@
+config,horizons_won,sig_worse_primary,sig_worse_prauc,qualifies,mean_logloss_b
+hlnone_rate,0,False,False,False,0.5876115085712311
+hl180_base,0,True,False,False,0.6372687297547276
+hl180_rate,0,True,False,False,0.6694488245721147
+hl60_base,0,True,False,False,0.6558385625096247
+hl60_rate,0,True,False,False,0.8703212928541015
+hl30_base,0,True,True,False,0.6793315419395721
+hl30_rate,0,True,False,False,0.8653054841757948

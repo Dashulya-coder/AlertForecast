@@ -1,0 +1,4 @@
+calibrator,horizons_won,sig_worse_brier,sig_worse_logloss,qualifies,mean_brier_b
+intercept_shift,2,True,True,False,0.1970543417725713
+platt,0,False,False,False,0.20297148786798916
+platt_recency,0,False,False,False,0.20241204072419594
