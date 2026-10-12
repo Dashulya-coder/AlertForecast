@@ -11,14 +11,18 @@ from alertforecast.frame import build_frame
 from alertforecast.neighbors import neighbor_features
 
 
-def load_full_frame(neighbors=False):
-    """Features and labels for every origin from the first train origin up to (not including) the test start.
+def load_full_frame(neighbors=False, end_s=None, allow_test=False):
+    """Features and labels for every origin from the first train origin up to (not including) `end_s`.
 
+    `end_s` defaults to the test start. Going beyond it needs allow_test=True (the single final evaluation).
     With neighbors=True the Stage C neighbour-region group is appended (columns start with 'nb_').
     """
+    end_s = config.TEST_START if end_s is None else end_s
+    if end_s > config.TEST_START and not allow_test:
+        raise PermissionError("Frames beyond the test start are locked. Pass allow_test=True only for the final evaluation.")
     alerts = load_alerts()
     state_iv, label_iv = Intervals.for_region_state(alerts), Intervals.for_region(alerts)
-    t = splits.grid(config.TRAIN_ORIGIN_START, config.TEST_START)
+    t = splits.grid(config.TRAIN_ORIGIN_START, end_s)
     frame = build_frame(t, state_iv, label_iv)
     if neighbors:
         frame = pd.concat([frame, neighbor_features(t, alerts)], axis=1)
@@ -56,16 +60,15 @@ def calibration_origins(block, window_start_s, h):
     return t[t + h * config.HOUR_S < window_start_s]
 
 
-def oot_calibration_data(recipe, full, window, h):
-    """Pooled out-of-time predictions for the K blocks before a window.
+def oot_calibration_data_before(recipe, full, start_s, h):
+    """Pooled out-of-time predictions for the K blocks before `start_s` (a window start or the test start).
 
     Each block is predicted by the same recipe fit strictly before that block. Returns a frame with the block index
-    (0 = nearest to the window), labels, probabilities and the clear flag for view (b).
+    (0 = nearest to `start_s`), labels, probabilities and the clear flag for view (b).
     """
-    window_start, _ = config.EVAL_WINDOWS[window]
     parts = []
-    for k, block in enumerate(splits.calibration_blocks(window)):
-        origins = calibration_origins(block, window_start, h)
+    for k, block in enumerate(splits.blocks_before(start_s)):
+        origins = calibration_origins(block, start_s, h)
         target, p = fit_and_predict(recipe, full, h, block[0], origins)
         part = target[["t", "clear", "day"]].copy()
         part["y"] = target[f"y{h}"].values
@@ -73,3 +76,8 @@ def oot_calibration_data(recipe, full, window, h):
         part["block"] = k
         parts.append(part)
     return pd.concat(parts, ignore_index=True)
+
+
+def oot_calibration_data(recipe, full, window, h):
+    """Out-of-time calibration data for a method-selection window (val, w1, w2)."""
+    return oot_calibration_data_before(recipe, full, config.EVAL_WINDOWS[window][0], h)

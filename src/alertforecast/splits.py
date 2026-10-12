@@ -54,12 +54,16 @@ def window_origins(window_name):
     return grid(start, end)
 
 
-def calibration_blocks(window_name):
-    """The K 28-day blocks directly before a window, nearest first: [(start, end), ...]."""
-    start, _ = config.EVAL_WINDOWS[window_name]
-    blocks, end = [], start
+def blocks_before(start_s):
+    """The K 28-day blocks directly before `start_s`, nearest first: [(start, end), ...]."""
+    blocks, end = [], start_s
     for _ in range(config.CAL_BLOCKS):
         begin = config.shift_local_days(end, -28)
         blocks.append((begin, end))
         end = begin
     return blocks
+
+
+def calibration_blocks(window_name):
+    """The calibration blocks of a method-selection window (val, w1, w2)."""
+    return blocks_before(config.EVAL_WINDOWS[window_name][0])

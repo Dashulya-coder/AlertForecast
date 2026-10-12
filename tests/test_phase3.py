@@ -144,3 +144,14 @@ def test_multi_window_diff_ci():
     assert same == (0.0, 0.0, 0.0)
     d, lo, hi = metrics.multi_window_diff_ci(metrics.brier, wins_a, wins_b, n_boot=100)
     assert d < 0 and hi < 0  # informative predictions have a lower Brier than noise
+
+
+def test_blocks_before_the_test_are_the_three_selection_windows():
+    blocks = splits.blocks_before(config.TEST_START)
+    assert blocks == [config.EVAL_WINDOWS["val"], config.EVAL_WINDOWS["w1"], config.EVAL_WINDOWS["w2"]]
+    assert splits.calibration_blocks("val") == splits.blocks_before(config.VAL_START)
+
+
+def test_frames_beyond_the_test_start_are_locked():
+    with pytest.raises(PermissionError):
+        protocol.load_full_frame(end_s=config.TEST_END)
